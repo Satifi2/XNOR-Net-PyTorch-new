@@ -75,8 +75,9 @@ class BinOp():
                         .sum(2, keepdim=True).sum(1, keepdim=True).div(n).expand(s)
             elif len(s) == 2:
                 m = weight.norm(1, 1, keepdim=True).div(n).expand(s)
-            m[weight.lt(-1.0)] = 0 
-            m[weight.gt(1.0)] = 0
+            m = m.clone()
+            m[weight.lt(-1.0).clone()] = 0 
+            m[weight.gt(1.0).clone()] = 0
             m = m.mul(self.target_modules[index].grad.data)
             m_add = weight.sign().mul(self.target_modules[index].grad.data)
             if len(s) == 4:

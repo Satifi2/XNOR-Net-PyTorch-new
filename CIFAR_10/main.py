@@ -6,25 +6,33 @@ import sys
 import os
 import torch
 import argparse
-import data
 import util
 import torch.nn as nn
 import torch.optim as optim
+import torchvision
+import torchvision.transforms as transforms
 
 from models import nin
 from torch.autograd import Variable
 
 def save_state(model, best_acc):
     print('==> Saving model ...')
+    # Get script directory and create model_hub there
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    model_hub_path = os.path.join(script_dir, 'model_hub')
+    os.makedirs(model_hub_path, exist_ok=True)
+    
     state = {
             'best_acc': best_acc,
             'state_dict': model.state_dict(),
             }
-    for key in state['state_dict'].keys():
+    # Create a copy of keys to avoid mutation during iteration
+    keys = list(state['state_dict'].keys())
+    for key in keys:
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = \
                     state['state_dict'].pop(key)
-    torch.save(state, 'models/nin.pth.tar')
+    torch.save(state, os.path.join(model_hub_path, 'nin.pth.tar'))
 
 def train(epoch):
     model.train()
@@ -89,6 +97,7 @@ def adjust_learning_rate(optimizer, epoch):
 
 if __name__=='__main__':
     # prepare the options
+    # python XNOR-Net-PyTorch\CIFAR_10\main.py --pretrained XNOR-Net-PyTorch\CIFAR_10\model_hub\nin.pth.tar --evaluat
     parser = argparse.ArgumentParser()
     parser.add_argument('--cpu', action='store_true',
             help='set if only CPU is available')
@@ -110,16 +119,25 @@ if __name__=='__main__':
     torch.cuda.manual_seed(1)
 
     # prepare the data
-    if not os.path.isfile(args.data+'/train_data'):
-        # check the data path
-        raise Exception\
-                ('Please assign the correct data path with --data <DATA_PATH>')
+    transform_train = transforms.Compose([
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
 
-    trainset = data.dataset(root=args.data, train=True)
+    transform_test = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
+
+    trainset = torchvision.datasets.CIFAR10(
+        root=args.data, train=True, download=True, transform=transform_train)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=128,
             shuffle=True, num_workers=2)
 
-    testset = data.dataset(root=args.data, train=False)
+    testset = torchvision.datasets.CIFAR10(
+        root=args.data, train=False, download=True, transform=transform_test)
     testloader = torch.utils.data.DataLoader(testset, batch_size=100,
             shuffle=False, num_workers=2)
 

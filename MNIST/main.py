@@ -9,12 +9,15 @@ import sys
 import models
 import util
 from torchvision import datasets, transforms
-from torch.autograd import Variable
 
 import util
 
 def save_state(model, acc):
     print('==> Saving model ...')
+    # Create model_hub directory relative to script location
+    model_dir = os.path.join(os.path.dirname(__file__), 'model_hub')
+    os.makedirs(model_dir, exist_ok=True)
+    
     state = {
             'acc': acc,
             'state_dict': model.state_dict(),
@@ -23,14 +26,17 @@ def save_state(model, acc):
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = \
                     state['state_dict'].pop(key)
-    torch.save(state, 'models/'+args.arch+'.best.pth.tar')
+    
+    # Save to model_hub directory
+    save_path = os.path.join(model_dir, args.arch+'.best.pth.tar')
+    torch.save(state, save_path)
 
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data), Variable(target)
+        data, target = data, target
         optimizer.zero_grad()
 
         # process the weights including binarization
@@ -48,7 +54,7 @@ def train(epoch):
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.data.item()))
+                100. * batch_idx / len(train_loader), loss.item()))
     return
 
 def test(evaluate=False):
@@ -61,9 +67,10 @@ def test(evaluate=False):
     for data, target in test_loader:
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data, volatile=True), Variable(target)
+        with torch.no_grad():
+            data, target = data, target
         output = model(data)
-        test_loss += criterion(output, target).data.item()
+        test_loss += criterion(output, target).item()
         pred = output.data.max(1, keepdim=True)[1]
         correct += pred.eq(target.data.view_as(pred)).cpu().sum()
 
@@ -91,7 +98,9 @@ def adjust_learning_rate(optimizer, epoch):
     return lr
 
 if __name__=='__main__':
-    # Training settings
+    # python XNOR-Net-PyTorch\MNIST\main.py
+    # python XNOR-Net-PyTorch\MNIST\main.py --pretrained XNOR-Net-PyTorch\MNIST\model_hub\LeNet_5.best.pth.tar --evaluate
+    # python XNOR-Net-PyTorch\MNIST\main.py --epochs 1 --pretrained XNOR-Net-PyTorch\MNIST\model_hub\LeNet_5.best.pth.tar
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
     parser.add_argument('--batch-size', type=int, default=128, metavar='N',
             help='input batch size for training (default: 128)')
