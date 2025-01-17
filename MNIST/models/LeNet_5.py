@@ -10,16 +10,13 @@ class BinActive(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input):
         ctx.save_for_backward(input)
-        size = input.size()
         input = input.sign()
         return input
 
     @staticmethod
     def backward(ctx, grad_output):
         input, = ctx.saved_tensors
-        grad_input = grad_output.clone()
-        grad_input[input.ge(1)] = 0
-        grad_input[input.le(-1)] = 0
+        grad_input = grad_output * (input.abs() <= 1).float()
         return grad_input
 
 class BinConv2d(nn.Module): # change the name of BinConv2d
